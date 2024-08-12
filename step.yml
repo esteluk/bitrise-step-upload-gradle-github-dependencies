@@ -12,10 +12,11 @@ title: |-
 summary: |
   Uploads gradle dependencies to Github Dependency Graph
 description: |
-  TODO
-website: https://github.com/esteluk/bitrise-step-upload-gradle-dependencies
-source_code_url: https://github.com/esteluk/bitrise-step-upload-gradle-dependencies
-support_url: https://github.com/esteluk/bitrise-step-upload-gradle-dependencies/issues
+  This step uses the Github Dependency Graph Gradle plugin in order to generate a comprehensive dependency
+  graph for this project, and uploads it to Github using the Github Dependency Submission REST API.
+website: https://github.com/esteluk/bitrise-step-upload-gradle-github-dependencies
+source_code_url: https://github.com/esteluk/bitrise-step-upload-gradle-github-dependencies
+support_url: https://github.com/esteluk/bitrise-step-upload-gradle-github-dependencies/issues
 
 # If this step should be available only for certain project types
 # just uncomment this `project_type_tags` section and include all the
@@ -26,10 +27,10 @@ support_url: https://github.com/esteluk/bitrise-step-upload-gradle-dependencies/
 # You can find more information about project type tags in the Step Development Guideline:
 # https://github.com/bitrise-io/bitrise/blob/master/_docs/step-development-guideline.md
 #
-# project_type_tags:
+project_type_tags:
 #   - ios
 #   - macos
-#   - android
+  - android
 #   - xamarin
 #   - react-native
 #   - cordova
@@ -63,28 +64,95 @@ type_tags:
 
 toolkit:
   go:
-    package_name: github.com/esteluk/bitrise-step-upload-gradle-dependencies
+    package_name: github.com/esteluk/bitrise-step-upload-gradle-github-dependencies
 
 
 inputs:
-  - example_step_input: Default Value - you can leave this empty if you want to
-    opts:
-      title: "Example Step Input"
-      summary: Summary. No more than 2-3 sentences.
-      description: |
-        Description of this input.
 
-        Can be Markdown formatted text.
+  - gradlew_path: $GRADLEW_PATH
+    opts:
+      category: Config
+      title: gradlew file path
+      description: |
+        Using a Gradle Wrapper (gradlew) is required, as the wrapper ensures
+        that the right Gradle version is installed and used for the build.
+        You can find more information about the Gradle Wrapper (gradlew),
+        and about how you can generate one
+        in the official guide at: [https://docs.gradle.org/current/userguide/gradle_wrapper.html](https://docs.gradle.org/current/userguide/gradle_wrapper.html).
+        The path should be relative to the repository root. For example, `./gradlew`,
+        or if it is in a sub directory, `./sub/dir/gradlew`.
+      is_required: true
+
+  - github_access_token:
+    opts:
+      title: "Github Access Token"
+      summary: Access token used to authenticate with the Github API
       is_expand: true
       is_required: true
-      value_options: []
+      is_sensitive: true
+
+  - included_projects:
+    opts:
+      category: Filtering dependencies
+      title: "Included projects"
+      summary: A regex of projects whose dependencies should be included in the dependency graph. Defaults to include all projects.
+      is_expand: true
+
+  - excluded_projects:
+    opts:
+      category: Filtering dependencies
+      title: "Excluded projects"
+      summary: A regex of projects whose dependencies should be excluded in the dependency graph. Defaults to exclude no projects.
+      is_expand: true
+
+  - included_configurations:
+    opts:
+      category: Filtering dependencies
+      title: "Included configurations"
+      summary: A regex of configurations whose dependencies should be included in the dependency graph. Defaults to include all configurations.
+      is_expand: true
+
+  - excluded_configurations:
+    opts:
+      category: Filtering dependencies
+      title: "Excluded configurations"
+      summary: A regex of configurations whose dependencies should be excluded in the dependency graph. Defaults to exclude no configurations.
+      is_expand: true
+
+  - runtime_included_projects:
+    opts:
+      category: Controlling dependency scope
+      title: "Runtime included projects"
+      summary: A regex of projects whose dependencies should be given a runtime scope in the dependency graph. Defaults to include all projects.
+      description: |
+        Dependencies in Github's dependency graph can be identified as having either a Runtime or a Development scope,
+        this helps us to identify those dependencies that are only used within eg. a project's test harness. 
+      is_expand: true
+      is_required: false
+
+  - runtime_excluded_projects:
+    opts:
+      category: Controlling dependency scope
+      title: "Runtime excluded projects"
+      summary: A regex of projects whose dependencies that do not provide runtime scoped dependencies. Defaults to exclude no projects.
+      is_expand: true
+
+  - runtime_included_configurations:
+    opts:
+      category: Controlling dependency scope
+      title: "Runtime included configurations"
+      summary: A regex of configurations whose dependencies should be given a runtime scope in the dependency graph. Defaults to include all configurations.
+      is_expand: true
+
+  - runtime_excluded_configurations:
+    opts:
+      category: Controlling dependency scope
+      title: "Runtime excluded configurations"
+      summary: A regex of configurations whose dependencies that do not provide runtime scoped dependencies. Defaults to exclude no configurations.
+      is_expand: true
 
 outputs:
-  - EXAMPLE_STEP_OUTPUT:
+  - GITHUB_DEPENDENCY_GRAPH:
     opts:
-      title: "Example Step Output"
-      summary: Summary. No more than 2-3 sentences.
-      description: |
-        Description of this output.
-
-        Can be Markdown formatted text.
+      title: Path to Github dependency graph
+      summary: The dependency graph that is submitted to Github
