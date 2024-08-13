@@ -6,20 +6,23 @@ app:
   # An example secret param, define it (A_SECRET_PARAM) in .bitrise.secrets.yml
   - A_SECRET_PARAM: $A_SECRET_PARAM
   # If you want to share this step into a StepLib
+  - BITRISE_GIT_BRANCH: main
   - BITRISE_STEP_ID: upload-gradle-github-dependencies
   - BITRISE_STEP_VERSION: "0.0.1"
   - BITRISE_STEP_GIT_CLONE_URL: https://github.com/esteluk/bitrise-step-upload-gradle-github-dependencies.git
+  - GRADLEW_PATH: ./gradlew
+  - BITRISE_BUILD_SLUG: oiuytre
+  - BITRISE_GIT_BRANCH: main
+  - BITRISE_TRIGGERED_WORKFLOW_ID: primary
   - MY_STEPLIB_REPO_FORK_GIT_URL: $MY_STEPLIB_REPO_FORK_GIT_URL
 
 workflows:
   test:
     steps:
-    - script:
+    - brew-install:
         inputs:
-        - content: |
-            #!/bin/bash
-            echo "Just an example 'secrets' print."
-            echo "The value of 'A_SECRET_PARAM' is: $A_SECRET_PARAM"
+        - packages: gradle
+        - upgrade: "no"
     - change-workdir:
         title: Switch working dir to test / _tmp dir
         description: |-
@@ -31,6 +34,30 @@ workflows:
         inputs:
         - path: ./_tmp
         - is_create_path: true
+    - script: 
+        title: Setup test project
+        inputs:
+        - content: |
+            #!/bin/bash
+            touch settings.gradle.kts
+            touch build.gradle.kts
+            /bin/cat <<EOL >build.gradle.kts
+            plugins {
+                id("java")
+            }
+
+            repositories {
+                mavenCentral()
+            }
+
+            dependencies {
+                implementation("com.google.guava:guava:32.1.2-jre")
+                testImplementation(platform("org.junit:junit-bom:5.10.3"))
+                testImplementation("org.junit.jupiter:junit-jupiter")
+            }
+            EOL
+
+            gradle wrapper
     - path::./:
         title: Step Test
         description: |-
@@ -40,7 +67,7 @@ workflows:
           file if you would not specify another value.
         run_if: true
         inputs:
-        - example_step_input: Example Step Input's value
+        - runtime_included_configurations: runtimeClasspath
     - script:
         inputs:
         - content: |

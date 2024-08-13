@@ -83,7 +83,7 @@ inputs:
         or if it is in a sub directory, `./sub/dir/gradlew`.
       is_required: true
 
-  - github_access_token:
+  - github_token:
     opts:
       title: "Github Access Token"
       summary: Access token used to authenticate with the Github API
@@ -150,6 +150,69 @@ inputs:
       title: "Runtime excluded configurations"
       summary: A regex of configurations whose dependencies that do not provide runtime scoped dependencies. Defaults to exclude no configurations.
       is_expand: true
+
+  - github_job_correlator: $BITRISE_TRIGGERED_WORKFLOW_ID
+    opts:
+      category: Github
+      title: "Github Dependency Graph Job Correlator"
+      summary: Populates the `job.correlator` property in the Submission API. Can be used to associate a number of submissions together.
+      is_expand: true
+      is_required: true
+
+  - github_job_id: $BITRISE_BUILD_SLUG
+    opts:
+      category: Github
+      title: "Github Dependency Graph Job ID"
+      summary: The ID of the job that creates this dependency graph
+      is_expand: true
+      is_required: true
+
+  - github_graph_ref: refs/heads/$BITRISE_GIT_BRANCH
+    opts:
+      category: Github
+      title: "Github Dependency Graph Ref"
+      summary: "Reference to the repository branch that triggered this snapshot."
+      is_expand: true
+      is_required: true
+
+  - github_graph_sha: $GIT_CLONE_COMMIT_HASH
+    opts:
+      category: Github
+      title: Github Commit SHA-1 Hash
+      summary: The SHA of the commit to check.
+      description: |
+        The SHA of the commit to check.
+      is_expand: true
+      is_required: false
+      is_dont_change_value: true
+  
+  - github_graph_workspace: $BITRISE_SOURCE_DIR
+    opts:
+      category: Github
+      title: Github Dependency Graph Workspace
+      summary: The root directory of the repository
+      is_expand: true
+      is_required: true
+
+  - github_owner: $BITRISEIO_GIT_REPOSITORY_OWNER
+    opts:
+      category: Github repo
+      title: GitHub repository owner
+      summary: The name of the GitHub repository.
+      description: |
+        The name of the owner of the GitHub repository.
+      is_expand: true
+      is_required: false
+
+  - github_repo: $BITRISEIO_GIT_REPOSITORY_SLUG
+    opts:
+      category: Github repo
+      title: GitHub repository
+      summary: The name of the GitHub repository.
+      description: |
+        The name of the GitHub repository.
+      is_expand: true
+      is_required: false
 
 outputs:
   - GITHUB_DEPENDENCY_GRAPH:

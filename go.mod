@@ -1,6 +1,6 @@
 module github.com/esteluk/bitrise-step-upload-gradle-github-dependencies
 
-go 1.22
+go 1.18
 
 require (
 	github.com/bitrise-io/go-android v1.0.3

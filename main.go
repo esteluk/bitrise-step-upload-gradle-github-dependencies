@@ -1,18 +1,28 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/bitrise-io/go-steputils/stepconf"
+	"github.com/bitrise-io/go-utils/command"
 	"github.com/bitrise-io/go-utils/log"
 )
 
 type Config struct {
 	GradlewPath             string `env:"gradlew_path,file"`
-	GithubAccessToken       string `env:"github_access_token,required"`
+	GithubToken             string `env:"github_token,required"`
+	GithubOwner             string `env:"github_owner",required`
+	GithubRepo              string `env:"github_repo",required`
+	GithubJobCorrelator     string `env:"github_job_correlator",required`
+	GithubJobId             string `env:"github_job_id",required`
+	GithubGraphRef          string `env:"github_graph_ref",required`
+	GithubGraphSha          string `env:"github_graph_sha",required`
+	GithubGraphWorkspace    string `env:"github_graph_workspace",required`
+	GithubSha               string `env:"github_graph_sha",required`
 	IncludedProjects        string `env:"included_projects"`
 	ExcludedProjects        string `env:"excluded_projects"`
 	IncludedConfigs         string `env:"included_configurations"`
@@ -44,7 +54,7 @@ func main() {
 		failf("Can't get absolute path for gradlew file (%s): %s", configs.GradlewPath, err)
 	}
 
-	initScript, err := filepath.Abs(fmt.Sprintf("%s/graph-init-script.gradle"))
+	initScript, err := filepath.Abs(fmt.Sprintf("%s/graph-init-script.gradle", os.Getenv("BITRISE_STEP_SOURCE_DIR")))
 	if err != nil {
 		failf("Can't find init script: %s", err)
 	}
@@ -86,28 +96,69 @@ func main() {
 		cmdSlice = append(cmdSlice, fmt.Sprintf("-DDEPENDENCY_GRAPH_RUNTIME_EXCLUDE_CONFIGURATIONS=%s", configs.RuntimeExcludedConfigs))
 	}
 
-	_, err = exec.Command(cmdSlice[0], cmdSlice[1:]...).CombinedOutput()
+	cmdSlice = append(cmdSlice, fmt.Sprintf("-DGITHUB_DEPENDENCY_GRAPH_JOB_CORRELATOR=%s", configs.GithubJobCorrelator))
+	cmdSlice = append(cmdSlice, fmt.Sprintf("-DGITHUB_DEPENDENCY_GRAPH_JOB_ID=%s", configs.GithubJobId))
+	cmdSlice = append(cmdSlice, fmt.Sprintf("-DGITHUB_DEPENDENCY_GRAPH_REF=%s", configs.GithubGraphRef))
+	cmdSlice = append(cmdSlice, fmt.Sprintf("-DGITHUB_DEPENDENCY_GRAPH_SHA=%s", configs.GithubSha))
+	cmdSlice = append(cmdSlice, fmt.Sprintf("-DGITHUB_DEPENDENCY_GRAPH_WORKSPACE=%s", configs.GithubGraphWorkspace))
+
+	cmd := command.New(cmdSlice[0], cmdSlice[1:]...)
+	cmd.SetStdout(os.Stdout)
+	cmd.SetStderr(os.Stderr)
+
+	err = cmd.Run()
 	if err != nil {
-		failf("Failed to execute Gradle command")
+		failf("Failed to execute Gradle command: %s", err)
 	}
 
-	//
-	// --- Step Outputs: Export Environment Variables for other Steps:
-	// You can export Environment Variables for other Steps with
-	//  envman, which is automatically installed by `bitrise setup`.
-	// A very simple example:
-	// cmdLog, err := exec.Command("bitrise", "envman", "add", "--key", "EXAMPLE_STEP_OUTPUT", "--value", "the value you want to share").CombinedOutput()
-	// if err != nil {
-	// 	fmt.Printf("Failed to expose output with envman, error: %#v | output: %s", err, cmdLog)
-	// 	os.Exit(1)
-	// }
-	// You can find more usage examples on envman's GitHub page
-	//  at: https://github.com/bitrise-io/envman
+	graphLocation, err := filepath.Abs(fmt.Sprintf("build/reports/dependency-graph-snapshots/%s.json", configs.GithubJobCorrelator))
+	if err != nil {
+		failf("Failed to generate dependency graph: %s", err)
+	}
 
-	//
-	// --- Exit codes:
-	// The exit code of your Step is very important. If you return
-	//  with a 0 exit code `bitrise` will register your Step as "successful".
-	// Any non zero exit code will be registered as "failed" by `bitrise`.
+	log.Infof("Built dependency graph at %s", graphLocation)
+
+	// Export output environment variable
+	cmd = command.New("bitrise", "envman", "add", "--key", "GITHUB_DEPENDENCY_GRAPH", "--value", graphLocation)
+	cmd.SetStdout(os.Stdout)
+	cmd.SetStderr(os.Stderr)
+	err = cmd.Run()
+	if err != nil {
+		failf("Failed to expose output with envman, error: %#v", err)
+	}
+
+	// Send to Github
+
+	file, err := os.Open(graphLocation)
+	if err != nil {
+		failf("Failed to open dependency graph: %s", err)
+	}
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/dependency-graph/snapshots", configs.GithubOwner, configs.GithubRepo)
+	req, err := http.NewRequest("POST", url, file)
+	if err != nil {
+		failf("Failed to create Github HTTP Request: %s", err)
+	}
+	req.Header.Add("Accept", "application/vnd.github+json")
+	req.Header.Add("X-GitHub-Api-Version", "2022-11-28")
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", configs.GithubToken))
+
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		failf("Error when making HTTP request: %s", err)
+	}
+	defer response.Body.Close()
+
+	var j interface{}
+	err = json.NewDecoder(response.Body).Decode(&j)
+	if err != nil {
+		failf("Failed to decode JSON response: %s", err)
+	}
+	result := j.(map[string]interface{})["result"]
+	if result == "ACCEPTED" || result == "SUCCESS" {
+		log.Infof("Successfully uploaded dependency graph")
+	} else {
+		failf("Failed to submit graph to Github. Received response: %s", j)
+	}
+
 	os.Exit(0)
 }
