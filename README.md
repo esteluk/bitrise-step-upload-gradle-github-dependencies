@@ -1,9 +1,29 @@
-# Upload Gradle Dependencies
+# Upload Gradle Github Dependencies
 
-TODO
+This step invokes the [Github Dependency Graph Gradle Plugin](https://github.com/gradle/github-dependency-graph-gradle-plugin)
+against your Gradle project and uploads the results to the associated Github Project's
+dependency graph using the [REST API](https://docs.github.com/en/rest/dependency-graph/dependency-submission).
 
+Some of the step parameters may be slightly esoteric, and are best understood by reading
+the documentation of both the Gradle Plugin and REST API.
+
+## Dependencies
+
+* You will need to enable the Dependency Graph in your project
+* The `github_token` passed to this step needs to have permission to use the Dependency
+  Submission API. The necessary permission is '"Contents" repository permissions (write)'.
 
 ## How to use this Step
+
+You can modify your workflow directly to use the step.
+
+```
+- git::https://github.com/esteluk/bitrise-step-upload-gradle-github-dependencies@0.1.0:
+      title: Generate dependency graph
+      inputs:
+      - github_token: $GITHUB_ACCESS_TOKEN
+      - gradlew_path: "./gradlew"
+```
 
 Can be run directly with the [bitrise CLI](https://github.com/bitrise-io/bitrise),
 just `git clone` this repository, `cd` into it's folder in your Terminal/Command Line
@@ -19,17 +39,6 @@ Step by step:
 3. `cd` into the directory of the step (the one you just `git clone`d)
 5. Create a `.bitrise.secrets.yml` file in the same directory of `bitrise.yml`
    (the `.bitrise.secrets.yml` is a git ignored file, you can store your secrets in it)
-6. Check the `bitrise.yml` file for any secret you should set in `.bitrise.secrets.yml`
-  * Best practice is to mark these options with something like `# define these in your .bitrise.secrets.yml`, in the `app:envs` section.
-7. Once you have all the required secret parameters in your `.bitrise.secrets.yml` you can just run this step with the [bitrise CLI](https://github.com/bitrise-io/bitrise): `bitrise run test`
-
-An example `.bitrise.secrets.yml` file:
-
-```
-envs:
-- A_SECRET_PARAM_ONE: the value for secret one
-- A_SECRET_PARAM_TWO: the value for secret two
-```
 
 ## How to create your own step
 
